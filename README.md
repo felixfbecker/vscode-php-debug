@@ -65,6 +65,7 @@ Features
 --------
  - Line breakpoints
  - Conditional breakpoints
+ - Hit count breakpoints: supports the conditions like `>=n`, `==n` and `%n` 
  - Function breakpoints
  - Step over, step in, step out
  - Break on entry

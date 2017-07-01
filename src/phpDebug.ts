@@ -150,6 +150,7 @@ class PhpDebugSession extends vscode.DebugSession {
             supportsEvaluateForHovers: false,
             supportsConditionalBreakpoints: true,
             supportsFunctionBreakpoints: true,
+            supportsHitConditionalBreakpoints: true,
             exceptionBreakpointFilters: [
                 {
                     filter: 'Notice',
@@ -385,13 +386,30 @@ class PhpDebugSession extends vscode.DebugSession {
             } else {
                 vscodeBreakpoints = [];
                 // create XDebug breakpoints from the arguments
-                xdebugBreakpoints = args.breakpoints!.map(breakpoint => {
-                    if (breakpoint.condition) {
-                        return new xdebug.ConditionalBreakpoint(breakpoint.condition, fileUri, breakpoint.line);
-                    } else {
-                        return new xdebug.LineBreakpoint(fileUri, breakpoint.line);
+                xdebugBreakpoints = [];
+                for (const [index, breakpoint] of args.breakpoints!.entries()) {
+                    let hitValue: number | undefined;
+                    let hitCondition: xdebug.HitCondition | undefined;
+                    if (breakpoint.hitCondition) {
+                        const match = breakpoint.hitCondition.match(/^\s*(>=|==|%)?\s*(\d+)\s*$/);
+                        if (match) {
+                            hitCondition = match[1] as xdebug.HitCondition || '==';
+                            hitValue = parseInt(match[2]);
+                        } else {
+                            vscodeBreakpoints[index] = {
+                                verified: false,
+                                line: breakpoint.line,
+                                message: 'Invalid hit condition. Specify a number, optionally prefixed with one of the operators >= (default), == or %'
+                            };
+                            continue;
+                        }
                     }
-                });
+                    if (breakpoint.condition) {
+                        xdebugBreakpoints.push(new xdebug.ConditionalBreakpoint(breakpoint.condition, fileUri, breakpoint.line, hitCondition, hitValue));
+                    } else {
+                        xdebugBreakpoints.push(new xdebug.LineBreakpoint(fileUri, breakpoint.line, hitCondition, hitValue));
+                    }
+                }
                 // for all connections
                 await Promise.all(connections.map(async (connection, connectionIndex) => {
                     // clear breakpoints for this file
