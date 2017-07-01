@@ -442,6 +442,14 @@ export class Property extends BaseProperty {
             this.children = Array.from(propertyNode.childNodes).map((propertyNode: Element) => new Property(propertyNode, context));
         }
     }
+
+    /**
+     * Sets the value of this property through a property_set command
+     */
+    public set(value: string): Promise<PropertyGetResponse> {
+        return this.context.stackFrame.connection.sendPropertySetCommand(this, value);
+    }
+
     /**
      * Returns the child properties of this property by doing another property_get
      * @returns Promise.<Property[]>
@@ -527,6 +535,13 @@ interface Command {
     resolveFn: (response: XMLDocument) => any;
     /** callback that gets called if an error happened while parsing the response */
     rejectFn: (error?: Error) => any;
+}
+
+/**
+ * Escapes a value to pass it as an argument in an XDebug command
+ */
+function escape(value: string): string {
+    return '"' + value.replace(/("|\\)/g, '\\$1') + '"';
 }
 
 /**
@@ -781,10 +796,20 @@ export class Connection extends DbgpConnection {
         return new ContextGetResponse(await this._enqueueCommand('context_get', `-d ${context.stackFrame.level} -c ${context.id}`), context);
     }
 
+    // ------------------------------ property --------------------------------------
+
     /** Sends a property_get command */
     public async sendPropertyGetCommand(property: Property): Promise<PropertyGetResponse> {
-        const escapedFullName = '"' + property.fullName.replace(/("|\\)/g, '\\$1') + '"';
-        return new PropertyGetResponse(await this._enqueueCommand('property_get', `-d ${property.context.stackFrame.level} -c ${property.context.id} -n ${escapedFullName}`), property);
+        return new PropertyGetResponse(await this._enqueueCommand('property_get', `-d ${property.context.stackFrame.level} -c ${property.context.id} -n ${escape(property.fullName)}`), property);
+    }
+
+    /** Sends a property_set command */
+    public async sendPropertySetCommand(property: Property, value: string): Promise<Response> {
+        return new Response(await this._enqueueCommand('property_set', [
+            '-d', property.context.stackFrame.level,
+            '-c', property.context.id,
+            '-n', escape(property.fullName)
+        ].join(' '), value), property.context.stackFrame.connection);
     }
 
     // ------------------------------- eval -----------------------------------------

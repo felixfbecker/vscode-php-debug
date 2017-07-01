@@ -150,6 +150,7 @@ class PhpDebugSession extends vscode.DebugSession {
             supportsEvaluateForHovers: false,
             supportsConditionalBreakpoints: true,
             supportsFunctionBreakpoints: true,
+            supportsSetVariable: true,
             exceptionBreakpointFilters: [
                 {
                     filter: 'Notice',
@@ -652,6 +653,32 @@ class PhpDebugSession extends vscode.DebugSession {
                 }
             }
             response.body = {scopes};
+        } catch (error) {
+            this.sendErrorResponse(response, error);
+            return;
+        }
+        this.sendResponse(response);
+    }
+
+    protected async setVariableRequest(response: VSCodeDebugProtocol.SetVariableResponse, args: VSCodeDebugProtocol.SetVariableArguments) {
+        try {
+            let properties: xdebug.Property[];
+            if (this._properties.has(args.variablesReference)) {
+                // variablesReference is a property
+                const container = this._properties.get(args.variablesReference);
+                properties = container.children;
+            } else if (this._contexts.has(args.variablesReference)) {
+                const context = this._contexts.get(args.variablesReference);
+                properties = await context.getProperties();
+            } else {
+                throw new Error('Unknown variable reference');
+            }
+            const property = properties.find(child => child.name === args.name);
+            if (!property) {
+                throw new Error('Property not found');
+            }
+            await property.set(args.value);
+            response.body = {value: args.value};
         } catch (error) {
             this.sendErrorResponse(response, error);
             return;
