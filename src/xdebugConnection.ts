@@ -476,7 +476,7 @@ export class PropertyGetResponse extends Response {
      * @param  {XMLDocument} document
      * @param  {Property} property
      */
-    constructor(document: XMLDocument, property: Property) {
+    constructor(document: XMLDocument, property: {context: Context}) {
         super(document, property.context.stackFrame.connection);
         this.children = Array.from(document.documentElement.firstChild!.childNodes).map((propertyNode: Element) => new Property(propertyNode, property.context));
     }
@@ -782,7 +782,7 @@ export class Connection extends DbgpConnection {
     }
 
     /** Sends a property_get command */
-    public async sendPropertyGetCommand(property: Property): Promise<PropertyGetResponse> {
+    public async sendPropertyGetCommand(property: {context: Context, fullName: string}): Promise<PropertyGetResponse> {
         const escapedFullName = '"' + property.fullName.replace(/("|\\)/g, '\\$1') + '"';
         return new PropertyGetResponse(await this._enqueueCommand('property_get', `-d ${property.context.stackFrame.level} -c ${property.context.id} -n ${escapedFullName}`), property);
     }

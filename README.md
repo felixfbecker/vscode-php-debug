@@ -73,6 +73,7 @@ Features
  - Stack traces, scope variables, superglobals, user defined constants
  - Arrays & objects (including classname, private and static properties)
  - Debug console
+ - Autocompletion in debug console for variables, array indexes, object properties (even nested)
  - Watches
  - Run as CLI
  - Run without debugging
