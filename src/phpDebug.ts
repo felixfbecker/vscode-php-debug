@@ -11,6 +11,7 @@ import * as fs from 'fs'
 import { Terminal } from './terminal'
 import { isSameUri, convertClientPathToDebugger, convertDebuggerPathToClient } from './paths'
 import minimatch = require('minimatch')
+import opn = require('opn')
 
 if (process.env['VSCODE_NLS_CONFIG']) {
     try {
@@ -66,6 +67,9 @@ interface LaunchRequestArguments extends VSCodeDebugProtocol.LaunchRequestArgume
     ignore?: string[]
     /** XDebug configuration */
     xdebugSettings?: { [featureName: string]: string | number }
+
+    /** Ability to open browser */
+    openUrl?: string
 
     // CLI options
 
@@ -311,6 +315,7 @@ class PhpDebugSession extends vscode.DebugSession {
                     this.sendErrorResponse(response, <Error>error)
                 })
                 server.listen(args.port || 9000, (error: NodeJS.ErrnoException) => (error ? reject(error) : resolve()))
+                this._openUrl(true)
             })
         try {
             if (!args.noDebug) {
@@ -324,6 +329,30 @@ class PhpDebugSession extends vscode.DebugSession {
             return
         }
         this.sendResponse(response)
+    }
+    /**
+     * Opens the urls specified in configuration, either with start or stop query string
+     * @param {boolean} start
+     */
+    private _openUrl(start: boolean) {
+        if (!this._args.openUrl) {
+            return
+        }
+        const myurl = new url.URL(this._args.openUrl)
+        if (start) {
+            myurl.searchParams.append('XDEBUG_SESSION_START', 'vscode')
+        } else {
+            myurl.searchParams.append('XDEBUG_SESSION_STOP', 'vscode')
+        }
+
+        const proc = opn(myurl.toString())
+        proc.then(child => {
+            child.stderr.on('data', (chunk: string) => {
+                this.sendEvent(new vscode.OutputEvent('openUrl: ' + chunk + '\n'))
+            })
+        }).catch((reason: any) => {
+            this.sendEvent(new vscode.OutputEvent('openUrl-error: ' + util.inspect(reason) + '\n'))
+        })
     }
 
     /**
@@ -992,6 +1021,7 @@ class PhpDebugSession extends vscode.DebugSession {
                     this._waitingConnections.delete(connection)
                 })
             )
+            this._openUrl(false)
             // If listening for connections, close server
             if (this._server) {
                 await new Promise(resolve => this._server.close(resolve))
