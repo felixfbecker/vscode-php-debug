@@ -11,10 +11,11 @@ import * as fs from 'fs'
 import { Terminal } from './terminal'
 import { isSameUri, convertClientPathToDebugger, convertDebuggerPathToClient } from './paths'
 import minimatch = require('minimatch')
+import { ProxyConnect } from './proxyConnect'
 
 if (process.env['VSCODE_NLS_CONFIG']) {
     try {
-        moment.locale(JSON.parse(process.env['VSCODE_NLS_CONFIG']).locale)
+        moment.locale(JSON.parse(process.env['VSCODE_NLS_CONFIG']!).locale)
     } catch (e) {
         // ignore
     }
@@ -68,6 +69,15 @@ interface LaunchRequestArguments extends VSCodeDebugProtocol.LaunchRequestArgume
     ignore?: string[]
     /** XDebug configuration */
     xdebugSettings?: { [featureName: string]: string | number }
+    /** proxy connection configuration */
+    proxy?: {
+        allowMultipleSessions: boolean
+        enable: boolean
+        host: string
+        key: string
+        port: number
+        timeout: number
+    }
 
     // CLI options
 
@@ -82,7 +92,7 @@ interface LaunchRequestArguments extends VSCodeDebugProtocol.LaunchRequestArgume
     /** Optional arguments passed to the runtime executable. */
     runtimeArgs?: string[]
     /** Optional environment variables to pass to the debuggee. The string valued properties of the 'environmentVariables' are used as key/value pairs. */
-    env?: { [key: string]: string }
+    env?: { [key: string]: string | undefined }
     /** If true launch the target in an external console. */
     externalConsole?: boolean
 }
@@ -139,6 +149,9 @@ class PhpDebugSession extends vscode.DebugSession {
 
     /** A map from unique VS Code variable IDs to XDebug eval result properties, because property children returned from eval commands are always inlined */
     private _evalResultProperties = new Map<number, xdebug.EvalResultProperty>()
+
+    /** The proxy initialization and termination connection. */
+    private _proxyConnect: ProxyConnect
 
     public constructor() {
         super()
@@ -249,6 +262,42 @@ class PhpDebugSession extends vscode.DebugSession {
         const createServer = () =>
             new Promise((resolve, reject) => {
                 const server = (this._server = net.createServer())
+
+                const ideport =
+                    args.proxy &&
+                    args.proxy.enable &&
+                    (!args.xdebugSettings || !args.xdebugSettings.remote_connect_back)
+                        ? args.port || 0
+                        : args.port || 9000
+
+                const setupProxy = (_ideport: number): Promise<void> => {
+                    if (
+                        args.proxy &&
+                        args.proxy.enable &&
+                        (!args.xdebugSettings || !args.xdebugSettings.remote_connect_back)
+                    ) {
+                        this._proxyConnect = new ProxyConnect(
+                            args.proxy.host,
+                            args.proxy.port,
+                            _ideport,
+                            args.proxy.allowMultipleSessions,
+                            args.proxy.key,
+                            args.proxy.timeout
+                        )
+                        const proxyConsole = (str: string) => this.sendEvent(new vscode.OutputEvent(str + '\n'), true)
+
+                        this._proxyConnect.on('log_request', proxyConsole)
+                        this._proxyConnect.on('log_response', proxyConsole)
+
+                        this._proxyConnect.on('log_error', (error: Error) => {
+                            this.sendEvent(new vscode.OutputEvent('PROXY ERROR: ' + error.message + '\n', 'stderr'))
+                        })
+                        return this._proxyConnect.sendProxyInitCommand()
+                    } else {
+                        return Promise.resolve()
+                    }
+                }
+
                 server.on('connection', async (socket: net.Socket) => {
                     try {
                         // new XDebug connection
@@ -312,11 +361,20 @@ class PhpDebugSession extends vscode.DebugSession {
                     this.sendEvent(new vscode.OutputEvent(util.inspect(error) + '\n'))
                     this.sendErrorResponse(response, <Error>error)
                 })
-                server.listen(
-                    args.port || 9000,
-                    args.hostname,
-                    (error: NodeJS.ErrnoException) => (error ? reject(error) : resolve())
-                )
+                server.on('listening', (error: NodeJS.ErrnoException) => {
+                    if (error) {
+                        reject(error)
+                    } else {
+                        setupProxy(server.address().port).then(
+                            () => resolve(),
+                            perror => {
+                                this._server.close()
+                                reject(new Error('PROXY ERROR: ' + perror.message))
+                            }
+                        )
+                    }
+                })
+                server.listen(ideport, args.hostname)
             })
         try {
             if (!args.noDebug) {
@@ -988,6 +1046,10 @@ class PhpDebugSession extends vscode.DebugSession {
         args: VSCodeDebugProtocol.DisconnectArguments
     ) {
         try {
+            if (this._proxyConnect) {
+                await this._proxyConnect.sendProxyStopCommand()
+            }
+
             await Promise.all(
                 Array.from(this._connections).map(async ([id, connection]) => {
                     // Try to send stop command for 500ms
