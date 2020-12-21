@@ -696,7 +696,7 @@ class PhpDebugSession extends vscode.DebugSession {
                     line++
                 } else {
                     // XDebug paths are URIs, VS Code file paths
-                    const filePath = convertDebuggerPathToClient(urlObject, this._args.pathMappings)
+                    const filePath = convertDebuggerPathToClient(urlObject, this._args.pathMappings, this._args.env)
                     // "Name" of the source and the actual file path
                     source = { name: path.basename(filePath), path: filePath }
                 }
@@ -722,7 +722,7 @@ class PhpDebugSession extends vscode.DebugSession {
                                 line++
                             } else {
                                 // XDebug paths are URIs, VS Code file paths
-                                const filePath = convertDebuggerPathToClient(urlObject, this._args.pathMappings)
+                                const filePath = convertDebuggerPathToClient(urlObject, this._args.pathMappings, this._args.env)
                                 // "Name" of the source and the actual file path
                                 source = { name: path.basename(filePath), path: filePath }
                             }
