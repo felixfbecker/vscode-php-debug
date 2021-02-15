@@ -4,7 +4,7 @@
   "version": "0.0.0-development",
   "publisher": "felixfbecker",
   "license": "MIT",
-  "description": "Debug support for PHP with XDebug",
+  "description": "Debug support for PHP with Xdebug",
   "keywords": [
     "php",
     "debug",
@@ -15,7 +15,7 @@
     "email": "felix.b@outlook.com"
   },
   "engines": {
-    "vscode": "^1.52.1",
+    "vscode": "^1.53.0",
     "node": "^14.0.0"
   },
   "icon": "images/logo.png",
@@ -42,8 +42,8 @@
     "string-replace-async": "^1.2.1",
     "url-relative": "^1.0.0",
     "urlencode": "^1.1.0",
-    "vscode-debugadapter": "^1.43.0",
-    "vscode-debugprotocol": "^1.43.0",
+    "vscode-debugadapter": "^1.44.0",
+    "vscode-debugprotocol": "^1.44.0",
     "xmldom": "^0.4.0"
   },
   "devDependencies": {
@@ -58,20 +58,20 @@
     "@types/semver": "^7.3.4",
     "@types/urlencode": "^1.1.2",
     "@types/xmldom": "^0.1.30",
-    "chai": "^4.2.0",
+    "chai": "^4.3.0",
     "chai-as-promised": "^7.1.1",
-    "husky": "^4.3.6",
+    "husky": "^4.3.8",
     "mocha": "^8.2.1",
     "nyc": "^15.1.0",
     "prettier": "2.2.1",
-    "semantic-release": "^17.3.0",
-    "semantic-release-vsce": "^3.0.1",
+    "semantic-release": "^17.3.7",
+    "semantic-release-vsce": "^3.1.3",
     "semver": "^7.3.4",
     "tslint": "^5.20.1",
     "tslint-config-prettier": "^1.18.0",
     "typescript": "^4.1.3",
-    "vsce": "^1.83.0",
-    "vscode-debugadapter-testsupport": "^1.43.0"
+    "vsce": "^1.85.0",
+    "vscode-debugadapter-testsupport": "^1.44.0"
   },
   "release": {
     "branches": [
@@ -197,12 +197,12 @@
               },
               "hostname": {
                 "type": "string",
-                "description": "Address to bind to when listening for XDebug",
+                "description": "Address to bind to when listening for Xdebug",
                 "default": "::"
               },
               "port": {
                 "type": "number",
-                "description": "Port on which to listen for XDebug",
+                "description": "Port on which to listen for Xdebug",
                 "default": 9000
               },
               "serverSourceRoot": {
@@ -251,7 +251,7 @@
                     "description": "This feature can get set by the IDE if it wants to have more detailed internal information on properties (eg. private members of classes, etc.) Zero means that hidden members are not shown to the IDE"
                   }
                 },
-                "description": "Overrides for XDebug remote debugging settings. See https://xdebug.org/docs-dbgp.php#feature-names",
+                "description": "Overrides for Xdebug remote debugging settings. See https://xdebug.org/docs-dbgp.php#feature-names",
                 "default": {}
               }
             }
@@ -259,7 +259,7 @@
         },
         "initialConfigurations": [
           {
-            "name": "Listen for XDebug",
+            "name": "Listen for Xdebug",
             "type": "php",
             "request": "launch",
             "port": 9000
